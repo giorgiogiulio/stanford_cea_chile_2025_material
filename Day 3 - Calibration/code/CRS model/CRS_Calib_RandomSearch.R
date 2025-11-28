@@ -1,58 +1,92 @@
-###########################################################################
-# This code was created by the DARTH workgroup (www.darthworkgroup.com). 
-# When using or modifying this code, please do so with attribution and 
-# cite our publications:
-
+# *****************************************************************************
+#
+# Script: CRS_Calibration_RandomSearch.R
+#
+# Purpose: Calibration of the 3-State Cancer Relative Survival (CRS) 
+#          Markov Model using random search with Latin Hypercube Sampling
+#
+# Authors: 
+# This work is developed by the Decision Analysis in R for Technologies in Health 
+# (DARTH) workgroup:
+#
+# - Fernando Alarid-Escudero, PhD
+# - Eva A. Enns, MS, PhD 
+# - M.G. Myriam Hunink, MD, PhD 
+# - Hawre J. Jalal, MD, PhD 
+# - Eline Krijkamp, PhD 
+# - Petros Pechlivanoglou, PhD
+# - Alan Yang, MSc
+#
+# *****************************************************************************
+#
+# Notes:
+#
+# Please acknowledge our work. See details to cite below:
+#
 # - Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA. 
 #   Non-identifiability in model calibration and implications for 
 #   medical decision making. Med Decis Making. 2018; 38(7):810-821.
-
+#
 # - Jalal H, Pechlivanoglou P, Krijkamp E, Alarid-Escudero F, Enns E, 
 #   Hunink MG. An Overview of R in Health Decision Sciences. 
-#   Med Decis Making. 2017; 37(3): 735-746. 
-
+#   Med Decis Making. 2017; 37(3): 735-746.
+#
 # A walkthrough of the code could be found in the following link:
 # - https://darth-git.github.io/calibSMDM2018-materials/
-###########################################################################
+#
+# *****************************************************************************
 
+# ******************************************************************************
+# 01 Calibration Overview ------------------------------------------------------
+# ******************************************************************************
 
-###################  Calibration Specifications  ###################
-
+### 01.01 Model description  ---------------------------------------------------
 # Model: 3-State Cancer Relative Survival (CRS) Markov Model
 # Inputs to be calibrated: p_Mets, p_DieMets
-# Targets: Surv
+# Targets: Survival data
 
-# Search method: Random search using Latin-Hypercube Sampling
+### 01.02 Calibration method  --------------------------------------------------
+# Search method: Random search using Latin Hypercube Sampling
 # Goodness-of-fit measure: Sum of log-likelihoods
 
-####################################################################
+# ******************************************************************************
+# 02 Setup ---------------------------------------------------------------------
+# ******************************************************************************
 
+### 02.01 Clear environment  ---------------------------------------------------
+rm(list = ls())
 
-####################################################################
-######  Load packages and function files  ####
-####################################################################
-# calibration functionality
-library(lhs)
+### 02.02 Load packages  -------------------------------------------------------
+# Install pacman if not present
+if (!requireNamespace("pacman", quietly = TRUE)) install.packages("pacman")
 
-# visualization
-library(plotrix)
-library(psych)
+# Load pacman
+library(pacman)
 
+# Load (install if needed) CRAN packages
+p_load(
+  lhs,          # Latin Hypercube Sampling
+  plotrix,      # Plotting with confidence intervals
+  psych         # Pairs panels
+)
 
-####################################################################
-######  Load target data  ######
-####################################################################
-load("R-labs/calibration/CRS_CalibTargets.RData")
+# ******************************************************************************
+# 03 Load calibration targets --------------------------------------------------
+# ******************************************************************************
+
+### 03.01 Load target data  ----------------------------------------------------
+load("data/CRS_CalibTargets.RData")
 lst_targets <- CRS_targets
 
-# Plot the targets
-
+### 03.02 Visualize calibration targets  ---------------------------------------
 # TARGET 1: Survival ("Surv")
-plotrix::plotCI(x = lst_targets$Surv$time, y = lst_targets$Surv$value, 
+plotrix::plotCI(x = lst_targets$Surv$time, 
+                y = lst_targets$Surv$value, 
                 ui = lst_targets$Surv$ub,
                 li = lst_targets$Surv$lb,
                 ylim = c(0, 1), 
-                xlab = "Time", ylab = "Pr Survive")
+                xlab = "Time", 
+                ylab = "Pr Survive")
 
 # TARGET 2: (if you had more...)
 # plotrix::plotCI(x = lst_targets$Target2$time, y = lst_targets$Target2$value, 
@@ -61,50 +95,50 @@ plotrix::plotCI(x = lst_targets$Surv$time, y = lst_targets$Surv$value,
 #                 ylim = c(0, 1), 
 #                 xlab = "Time", ylab = "Target 2")
 
+# ******************************************************************************
+# 04 Load model as a function --------------------------------------------------
+# ******************************************************************************
 
-####################################################################
-######  Load model as a function  ######
-####################################################################
-# - inputs are parameters to be estimated through calibration
-# - outputs correspond to the target data
+### 04.01 Source model function  -----------------------------------------------
+# Function inputs: parameters to be estimated through calibration
+# Function outputs: model predictions corresponding to target data
+source("code/CRS model/CRS_MarkovModel_Function.R") # creates run_crs_markov()
 
-source("R-labs/calibration/CRS_MarkovModel_Function.R") # creates the function run_crs_markov()
-
-# Check that it works
+### 04.02 Test model function  -------------------------------------------------
 v_params_test <- c(p_Mets = 0.10, p_DieMets = 0.05)
-run_crs_markov(v_params_test) # It works!
+run_crs_markov(v_params_test) # Test: function works correctly
 
+# ******************************************************************************
+# 05 Calibration specifications ------------------------------------------------
+# ******************************************************************************
 
-####################################################################
-######  Specify calibration parameters  ######
-####################################################################
-# Specify seed (for reproducible sequence of random numbers)
-set.seed(072218)
+### 05.01 Set random seed  -----------------------------------------------------
+set.seed(072218) # For reproducible sequence of random numbers
 
-# number of random samples
+### 05.02 Define calibration parameters  ---------------------------------------
+# Number of random samples
 n_samp <- 1000
 
-# names and number of input parameters to be calibrated
-v_param_names <- c("p_Mets","p_DieMets")
-n_param <- length(v_param_names)
+# Names and number of parameters to calibrate
+v_param_names <- c("p_Mets", "p_DieMets")
+n_param       <- length(v_param_names)
 
-# range on input search space
+# Search space bounds
 lb <- c(p_Mets = 0.04, p_DieMets = 0.04) # lower bound
 ub <- c(p_Mets = 0.16, p_DieMets = 0.16) # upper bound
 
-# number of calibration targets
+### 05.03 Define calibration targets  ------------------------------------------
 v_target_names <- c("Surv")
-n_target <- length(v_target_names)
+n_target       <- length(v_target_names)
 
+# ******************************************************************************
+# 06 Run calibration using Latin Hypercube Sampling ----------------------------
+# ******************************************************************************
 
-####################################################################
-######  Calibrate!  ######
-####################################################################
-# record start time of calibration
+### 06.01 Record start time  ---------------------------------------------------
 t_init <- Sys.time()
 
-###  Generate a random sample of input values  ###
-
+### 06.02 Generate random sample of parameter values  --------------------------
 # Sample unit Latin Hypercube
 m_lhs_unit <- randomLHS(n_samp, n_param)
 
@@ -117,27 +151,24 @@ for (i in 1:n_param) {
 }
 colnames(m_param_samp) <- v_param_names
 
-# view resulting parameter set samples
+# View resulting parameter set samples
 pairs.panels(m_param_samp)
 
-
-###  Run the model for each set of input values ###
-
-# initialize goodness-of-fit vector
+### 06.03 Run model for each set of parameter values  --------------------------
+# Initialize goodness-of-fit matrix
 m_GOF <- matrix(nrow = n_samp, ncol = n_target)
 colnames(m_GOF) <- paste0(v_target_names, "_fit")
 
-# loop through sampled sets of input values
+# Loop through sampled sets of input values
 for (j in 1:n_samp) { # j <- 1
   
-  ###  Run model for a given parameter set  ###
+  # Run model for a given parameter set
   model_res <- run_crs_markov(v_params = m_param_samp[j, ])
   
+  # Calculate goodness-of-fit of model outputs to targets
   
-  ###  Calculate goodness-of-fit of model outputs to targets  ###
-
   # TARGET 1: Survival ("Surv")
-  # log likelihood  
+  # Log likelihood  
   m_GOF[j, 1] <- sum(dnorm(x = lst_targets$Surv$value,
                            mean = model_res$Surv,
                            sd = lst_targets$Surv$se,
@@ -147,7 +178,6 @@ for (j in 1:n_samp) { # j <- 1
   # w <- 1/(lst_targets$Surv$se^2)
   # m_GOF[j,1] <- -sum(w*(lst_targets$Surv$value - v_res)^2)
   
-  
   # TARGET 2: (if you had more...)
   # log likelihood
   # m_GOF[j,2] <- sum(dnorm(x = lst_targets$Target2$value,
@@ -155,32 +185,35 @@ for (j in 1:n_samp) { # j <- 1
   #                        sd = lst_targets$Target2$se,
   #                        log = T))
   
-  
 } # End loop over sampled parameter sets
 
-
-###  Combine fits to the different targets into single GOF  ###
-# can give different targets different weights
+### 06.04 Combine fits to different targets into single GOF  -------------------
+# Can give different targets different weights
 v_weights <- matrix(1, nrow = n_target, ncol = 1)
-# matrix multiplication to calculate weight sum of each GOF matrix row
+
+# Matrix multiplication to calculate weighted sum of each GOF matrix row
 v_GOF_overall <- c(m_GOF %*% v_weights)
+
 # Store in GOF matrix with column name "Overall"
 m_GOF <- cbind(m_GOF, Overall_fit = v_GOF_overall)
 
-# Calculate computation time
+### 06.05 Calculate computation time  ------------------------------------------
 comp_time <- Sys.time() - t_init
 
-####################################################################
-######  Exploring best-fitting input sets  ######
-####################################################################
+# ******************************************************************************
+# 07 Explore best-fitting parameter sets ---------------------------------------
+# ******************************************************************************
 
+### 07.01 Sort results by goodness-of-fit  -------------------------------------
 # Arrange parameter sets in order of fit
-m_calib_res <- cbind(m_param_samp,m_GOF)
-m_calib_res <- m_calib_res[order(-m_calib_res[,"Overall_fit"]),]
+m_calib_res <- cbind(m_param_samp, m_GOF)
+m_calib_res <- m_calib_res[order(-m_calib_res[, "Overall_fit"]), ]
 
+### 07.02 Examine top-performing parameter sets  -------------------------------
 # Examine the top 10 best-fitting sets
 m_calib_res[1:10, ]
 
+### 07.03 Visualize top-performing parameter sets  -----------------------------
 # Plot the top 100 (top 10%)
 plot(m_calib_res[1:100, 1], m_calib_res[1:100, 2],
      xlim = c(lb[1], ub[1]), ylim = c(lb[2], ub[2]),
@@ -190,7 +223,8 @@ plot(m_calib_res[1:100, 1], m_calib_res[1:100, 2],
 # Pairwise comparison of top 100 sets
 pairs.panels(m_calib_res[1:100, v_param_names])
 
-### Plot model-predicted output at best and worst set vs targets ###
+### 07.04 Compare best and worst fit model outputs to targets  -----------------
+# Plot model-predicted output at best and worst set vs targets
 v_out_best  <- run_crs_markov(m_calib_res[1, ])
 v_out_worst <- run_crs_markov(m_calib_res[999, ])
 

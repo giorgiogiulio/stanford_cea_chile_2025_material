@@ -1,4 +1,44 @@
-#### CRS Markov model in a function ####
+# *****************************************************************************
+#
+# Script: CRS_MarkovModel_Function.R
+#
+# Purpose: Define the 3-State Cancer Relative Survival (CRS) Markov Model
+#          as a function for use in calibration exercises
+#
+# Authors: 
+# This work is developed by the Decision Analysis in R for Technologies in Health 
+# (DARTH) workgroup:
+#
+# - Fernando Alarid-Escudero, PhD
+# - Eva A. Enns, MS, PhD 
+# - M.G. Myriam Hunink, MD, PhD 
+# - Hawre J. Jalal, MD, PhD 
+# - Eline Krijkamp, PhD 
+# - Petros Pechlivanoglou, PhD
+# - Alan Yang, MSc
+#
+# *****************************************************************************
+#
+# Notes:
+#
+# Please acknowledge our work. See details to cite below:
+#
+# - Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA. 
+#   Non-identifiability in model calibration and implications for 
+#   medical decision making. Med Decis Making. 2018; 38(7):810-821.
+#
+# - Jalal H, Pechlivanoglou P, Krijkamp E, Alarid-Escudero F, Enns E, 
+#   Hunink MG. An Overview of R in Health Decision Sciences. 
+#   Med Decis Making. 2017; 37(3): 735-746.
+#
+# A walkthrough of the code could be found in the following link:
+# - https://darth-git.github.io/calibSMDM2018-materials/
+#
+# *****************************************************************************
+
+# ******************************************************************************
+# CRS Markov Model Function ----------------------------------------------------
+# ******************************************************************************
 run_crs_markov <- function(v_params) {
   with(as.list(v_params), {
     ## Markov model parameters
