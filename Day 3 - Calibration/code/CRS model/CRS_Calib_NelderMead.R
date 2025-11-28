@@ -1,113 +1,148 @@
-###########################################################################
-# This code was created by the DARTH workgroup (www.darthworkgroup.com). 
-# When using or modifying this code, please do so with attribution and 
-# cite our publications:
-
-# - Alarid-Escudero F, Maclehose RF, Peralta Y, Kuntz KM, Enns EA. 
+# *****************************************************************************
+#
+# Script: CRS_Calibration_NelderMead.R
+#
+# Purpose: Calibration of the 3-State Cancer Relative Survival (CRS) 
+#          Markov Model using Nelder-Mead directed search algorithm
+#
+# Authors: 
+# This work is developed by the Decision Analysis in R for Technologies in Health 
+# (DARTH) workgroup:
+#
+# - Fernando Alarid-Escudero, PhD
+# - Eva A. Enns, MS, PhD 
+# - M.G. Myriam Hunink, MD, PhD 
+# - Hawre J. Jalal, MD, PhD 
+# - Eline Krijkamp, PhD 
+# - Petros Pechlivanoglou, PhD
+# - Alan Yang, MSc
+#
+# *****************************************************************************
+#
+# Notes:
+#
+# Please acknowledge our work. See details to cite below:
+#
+# - Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA. 
 #   Non-identifiability in model calibration and implications for 
 #   medical decision making. Med Decis Making. 2018; 38(7):810-821.
-
+#
 # - Jalal H, Pechlivanoglou P, Krijkamp E, Alarid-Escudero F, Enns E, 
 #   Hunink MG. An Overview of R in Health Decision Sciences. 
-#   Med Decis Making. 2017; 37(3): 735-746. 
-
+#   Med Decis Making. 2017; 37(3): 735-746.
+#
 # A walkthrough of the code could be found in the following link:
 # - https://darth-git.github.io/calibSMDM2018-materials/
-###########################################################################
+#
+# *****************************************************************************
 
-###################  Calibration Specifications  ###################
+# ******************************************************************************
+# 01 Calibration Overview ------------------------------------------------------
+# ******************************************************************************
 
+### 01.01 Model description  ---------------------------------------------------
 # Model: 3-State Cancer Relative Survival (CRS) Markov Model
 # Inputs to be calibrated: p_Mets, p_DieMets
-# Targets: Surv
+# Targets: Survival data
 
-# Search method: Directed search using Nelder-mead
+### 01.02 Calibration method  --------------------------------------------------
+# Search method: Directed search using Nelder-Mead algorithm
 # Goodness-of-fit measure: Sum of Log-Likelihood
 
-####################################################################
+# ******************************************************************************
+# 02 Setup ---------------------------------------------------------------------
+# ******************************************************************************
+
+### 02.01 Clear environment  ---------------------------------------------------
 rm(list = ls())
 
-####################################################################
-######  Load packages and function files  ####
-####################################################################
-# calibration functionality
-library(lhs)
+### 02.02 Load packages  -------------------------------------------------------
+# Install pacman if not present
+if (!requireNamespace("pacman", quietly = TRUE)) install.packages("pacman")
 
-# visualization
-library(plotrix)
-library(psych)
+# Load pacman
+library(pacman)
 
+# Load (install if needed) CRAN packages
+p_load(
+  lhs,          # Latin Hypercube Sampling
+  plotrix,      # Plotting with confidence intervals
+  psych,        # Pairs panels
+  mvtnorm,      # Multivariate normal distribution
+  GGally,       # Pairwise plots
+  ggplot2       # Advanced plotting
+)
 
-####################################################################
-######  Load target data  ######
-####################################################################
+# ******************************************************************************
+# 03 Load calibration targets --------------------------------------------------
+# ******************************************************************************
+
+### 03.01 Load target data  ----------------------------------------------------
 load("data/CRS_CalibTargets.RData")
 lst_targets <- CRS_targets
 
-# Plot the targets
-
+### 03.02 Visualize calibration targets  ---------------------------------------
 # TARGET 1: Survival ("Surv")
-plotrix::plotCI(x = lst_targets$Surv$time, y = lst_targets$Surv$value, 
+plotrix::plotCI(x = lst_targets$Surv$time, 
+                y = lst_targets$Surv$value, 
                 ui = lst_targets$Surv$ub,
                 li = lst_targets$Surv$lb,
                 ylim = c(0, 1), 
-                xlab = "Time", ylab = "Pr Survive")
+                xlab = "Time", 
+                ylab = "Pr Survive")
 
-# TARGET 2: (if you had more...)
-# plotrix::plotCI(x = lst_targets$Target2$time, y = lst_targets$Target2$value, 
-#                 ui = lst_targets$Target2$ub,
-#                 li = lst_targets$Target2$lb,
-#                 ylim = c(0, 1), 
-#                 xlab = "Time", ylab = "Target 2")
+# ******************************************************************************
+# 04 Load model as a function --------------------------------------------------
+# ******************************************************************************
 
+### 04.01 Source model function  -----------------------------------------------
+# Function inputs: parameters to be estimated through calibration
+# Function outputs: model predictions corresponding to target data
+source("code/CRS model/CRS_MarkovModel_Function.R") # loads run_crs_markov()
 
-####################################################################
-######  Load model as a function  ######
-####################################################################
-# - inputs are parameters to be estimated through calibration
-# - outputs correspond to the target data
-
-source("code/CRS_MarkovModel_Function.R") # loads the function run_crs_markov()
-
-# Check that it works
+### 04.02 Test model function  -------------------------------------------------
 v_params_test <- c(p_Mets = 0.10, p_DieMets = 0.05)
-run_crs_markov(v_params_test) # It works!
+run_crs_markov(v_params_test) # Test: function works correctly
 
+# ******************************************************************************
+# 05 Calibration specifications ------------------------------------------------
+# ******************************************************************************
 
-####################################################################
-######  Specify calibration parameters  ######
-####################################################################
-# Specify seed (for reproducible sequence of random numbers)
-set.seed(072218)
+### 05.01 Set random seed  -----------------------------------------------------
+set.seed(072218) # For reproducible sequence of random numbers
 
-# number of initial starting points
+### 05.02 Define calibration parameters  ---------------------------------------
+# Number of initial starting points
 n_init <- 100
 
-# names and number of input parameters to be calibrated
-v_param_names <- c("p_Mets","p_DieMets")
-n_param <- length(v_param_names)
+# Names and number of parameters to calibrate
+v_param_names <- c("p_Mets", "p_DieMets")
+n_param       <- length(v_param_names)
 
-# range on input search space
+# Search space bounds
 lb <- c(p_Mets = 0.04, p_DieMets = 0.04) # lower bound
 ub <- c(p_Mets = 0.16, p_DieMets = 0.16) # upper bound
 
-# number of calibration targets
+### 05.03 Define calibration targets  ------------------------------------------
 v_target_names <- c("Surv")
-n_target <- length(v_target_names)
+n_target       <- length(v_target_names)
 
+# ******************************************************************************
+# 06 Goodness-of-fit function --------------------------------------------------
+# ******************************************************************************
 
-### Calibration functions
-
-# Write goodness-of-fit function to pass to Nelder-Mead algorithm
+### 06.01 Define goodness-of-fit function  -------------------------------------
+# Function to pass to Nelder-Mead algorithm
 f_gof <- function(v_params){
   
-  # Run model for parametr set "v_params"
+  # Run model for parameter set v_params
   model_res <- run_crs_markov(v_params)
   
   # Calculate goodness-of-fit of model outputs to targets
   v_GOF <- numeric(n_target)
+  
   # TARGET 1: Survival ("Surv")
-  # log likelihood  
+  # Log likelihood  
   v_GOF[1] <- sum(dnorm(x = lst_targets$Surv$value,
                         mean = model_res$Surv,
                         sd = lst_targets$Surv$se,
@@ -120,43 +155,51 @@ f_gof <- function(v_params){
   #                        sd = lst_targets$Target2$se,
   #                        log = T))
   
-  # OVERALL
-  # can give different targets different weights
-  v_weights <- rep(1,n_target)
-  # weighted sum
+  # OVERALL goodness-of-fit
+  # Can give different targets different weights
+  v_weights <- rep(1, n_target)
+  
+  # Weighted sum
   GOF_overall <- sum(v_GOF[1:n_target] * v_weights)
   
-  # return GOF
+  # Return GOF
   return(GOF_overall)
 }
 
+# ******************************************************************************
+# 07 Run calibration using Nelder-Mead -----------------------------------------
+# ******************************************************************************
 
-####################################################################
-######  Calibrate!  ######
-####################################################################
-# record start time of calibration
+### 07.01 Record start time  ---------------------------------------------------
 t_init <- Sys.time()
 
-###  Sample multiple random starting values for Nelder-Mead  ###
+### 07.02 Sample initial starting values  --------------------------------------
+# Generate random starting points for Nelder-Mead
 v_params_init <- matrix(nrow = n_init, ncol = n_param)
+
 for (i in 1:n_param) {
-  v_params_init[,i] <- runif(n_init, min = lb[i],max = ub[i])
+  v_params_init[, i] <- runif(n_init, min = lb[i], max = ub[i])
 }
+
 colnames(v_params_init) <- v_param_names
 
-###  Run Nelder-Mead for each starting point  ###
-m_calib_res <- matrix(nrow = n_init, ncol = n_param + 1, 
+### 07.03 Initialize calibration results storage  ------------------------------
+m_calib_res <- matrix(nrow = n_init, 
+                      ncol = n_param + 1, 
                       dimnames = list(paste0("par_id_", 1:n_init),
                                       c(v_param_names, "Overall_fit")))
+
 l_fit_nm <- vector(mode = "list", length = n_init)
 names(l_fit_nm) <- paste0("par_id_", 1:n_init)
+
+### 07.04 Run Nelder-Mead for each starting point  -----------------------------
 for (j in 1:n_init) { # j <- 1
   
   ### use optim() as Nelder-Mead ###
-  l_fit_nm[[j]] <- optim(v_params_init[j,], f_gof,
-                 control = list(fnscale = -1, # switches from minimization to maximization
-                                maxit = 1000), hessian = T)
-  m_calib_res[j,] <- c(l_fit_nm[[j]]$par, l_fit_nm[[j]]$value)
+  l_fit_nm[[j]] <- optim(v_params_init[j, ], f_gof,
+                         control = list(fnscale = -1, # switches from minimization to maximization
+                                        maxit = 1000), hessian = T)
+  m_calib_res[j, ] <- c(l_fit_nm[[j]]$par, l_fit_nm[[j]]$value)
   
   ### to use a simulated annealing instead ###
   # fit_sa <- optim(v_params_init[j,], f_gof,
@@ -173,35 +216,40 @@ for (j in 1:n_init) { # j <- 1
   #   return(-f_gof(params))}
   # fit_ga = DEoptim(f_fitness, lower=lb, upper=ub)
   # m_calib_res[j,] = c(fit_ga$optim$bestmem,-1*fit_ga$optim$bestval)
+  
+}
 
-  }
-
-# Calculate computation time
+### 07.05 Calculate computation time  ------------------------------------------
 comp_time <- Sys.time() - t_init
 
-####################################################################
-######  Exploring best-fitting input sets  ######
-####################################################################
+# ******************************************************************************
+# 08 Explore best-fitting parameter sets ---------------------------------------
+# ******************************************************************************
 
+### 08.01 Sort results by goodness-of-fit  -------------------------------------
 # Arrange parameter sets in order of fit
-m_calib_res <- m_calib_res[order(-m_calib_res[,"Overall_fit"]),]
+m_calib_res <- m_calib_res[order(-m_calib_res[, "Overall_fit"]), ]
+
 # Best set
 v_param_best <- m_calib_res[1, -3]
+
 # Obtain id for best set
 id_best_set <- rownames(m_calib_res)[1]
 
+### 08.02 Examine top-performing parameter sets  -------------------------------
 # Examine the top 10 best-fitting sets
 m_calib_res[1:10, ]
 
+### 08.03 Visualize top-performing parameter sets  -----------------------------
 # Plot the top 10 (top 10%)
 plot(m_calib_res[1:10, 1], m_calib_res[1:10, 2],
      xlim = c(lb[1], ub[1]), ylim = c(lb[2], ub[2]),
      xlab = colnames(m_calib_res)[1], ylab = colnames(m_calib_res)[2])
 
 # Pairwise comparison of top 10 sets
-pairs.panels(m_calib_res[1:10,v_param_names])
+pairs.panels(m_calib_res[1:10, v_param_names])
 
-
+### 08.04 Compare best-fit model output to targets  ----------------------------
 ### Plot model-predicted output at mean vs targets ###
 v_out_best <- run_crs_markov(m_calib_res[1, ])
 
@@ -231,26 +279,33 @@ legend("topright",
 #        legend = c("Target", "Model-predicted output"),
 #        col = c("black", "red"), pch = c(1, 8))
 
-# Uncertainty quantification ----
-## Hessian matrix ----
+# ******************************************************************************
+# 09 Uncertainty quantification ------------------------------------------------
+# ******************************************************************************
+
+### 09.01 Hessian matrix  ------------------------------------------------------
 m_hess <- l_fit_nm[[id_best_set]]$hessian
 m_hess
-## Covariance matrix ----
+
+### 09.02 Covariance matrix  ---------------------------------------------------
 m_cov <- solve(-m_hess)
 m_cov
-## Standard errors ----
+
+### 09.03 Standard errors  -----------------------------------------------------
 m_se <- sqrt(diag(m_cov))
 m_se
-## 95% confidence interval ----
-m_confint <- cbind(v_param_best - 1.96*m_se,
-                   v_param_best + 1.96*m_se)
+
+### 09.04 95% confidence interval  ---------------------------------------------
+m_confint <- cbind(v_param_best - 1.96 * m_se,
+                   v_param_best + 1.96 * m_se)
 colnames(m_confint) <- c("LB", "UB")
 m_confint
-## Correlation matrix ----
+
+### 09.05 Correlation matrix  --------------------------------------------------
 m_cor <- cov2cor(m_cov)
 m_cor
 
-## Draw sample of parameters ----
+### 09.06 Draw sample of parameters  -------------------------------------------
 n_samp <- 1000
 m_param_best_sample <- rmvnorm(n = n_samp, 
                                mean = v_param_best, 
@@ -258,7 +313,7 @@ m_param_best_sample <- rmvnorm(n = n_samp,
 colnames(m_param_best_sample) <- v_param_names
 pairs.panels(m_param_best_sample)
 
-## Fancier pairwise plot ----
+### 09.07 Fancier pairwise plot  -----------------------------------------------
 gg_nm_pairs_corr <- GGally::ggpairs(data.frame(m_param_best_sample),
                                     upper = list(continuous = wrap("cor",
                                                                    color = "black",
@@ -268,8 +323,7 @@ gg_nm_pairs_corr <- GGally::ggpairs(data.frame(m_param_best_sample),
                                     lower = list(continuous = wrap("points", 
                                                                    alpha = 0.3,
                                                                    size = 0.7)),
-                                    columnLabels = v_param_names
-) +
+                                    columnLabels = v_param_names) +
   theme_bw(base_size = 18) +
   theme(axis.title.x = element_blank(),
         axis.text.x  = element_text(size = 14),
@@ -279,4 +333,5 @@ gg_nm_pairs_corr <- GGally::ggpairs(data.frame(m_param_best_sample),
         strip.background = element_rect(fill = "white",
                                         color = "white"),
         strip.text = element_text(hjust = 0))
+
 gg_nm_pairs_corr

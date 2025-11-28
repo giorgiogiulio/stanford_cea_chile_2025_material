@@ -32,6 +32,12 @@ rm(list = ls())
 ####################################################################
 ######  Load packages and function files  ####
 ####################################################################
+
+#Install IMIS
+
+install.packages("IMIS")
+
+
 # calibration functionality
 library(lhs)
 library(IMIS)
