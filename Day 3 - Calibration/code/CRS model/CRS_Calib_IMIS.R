@@ -100,7 +100,7 @@ plotrix::plotCI(x = lst_targets$Surv$time,
 ### 04.01 Source model function  -----------------------------------------------
 # Function inputs: parameters to be estimated through calibration
 # Function outputs: model predictions corresponding to target data
-source("code/CRS model/CRS_MarkovModel_Function.R") # creates run_crs_markov()
+source("code/Functions/CRS_MarkovModel_Function.R") # creates run_crs_markov()
 
 ### 04.02 Test model function  -------------------------------------------------
 v_params_test <- c(p_Mets = 0.10, p_DieMets = 0.05)
