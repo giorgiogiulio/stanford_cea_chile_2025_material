@@ -54,44 +54,77 @@
 10 * 5
 100 / 4
 
-### 01.02 Creating Objects (Variables) -----------------------------------------
-# Use the assignment operator <- to store values
-# These objects will appear in your Environment panel
-
-my_number <- 42
-my_name <- "Student"
-my_vector <- c(1, 2, 3, 4, 5)
-
-# View objects in Environment panel
-print(my_number)
-print(my_name)
-print(my_vector)
-
-### 01.03 Basic Operations with Vectors ----------------------------------------
-# Vectors are the basic data structure in R
-
-sum(my_vector)
-mean(my_vector)
-max(my_vector)
-
-
 # ******************************************************************************
 # 02 Installing and Loading Packages -------------------------------------------
 # ******************************************************************************
 
 ### 02.01 Installing Packages --------------------------------------------------
-# Install tidyverse and dampack (only need to do this once)
-# Uncomment the lines below if you haven't installed these packages yet
+# In this section we install all the R packages needed for:
+# - Sampling and calibration (lhs, IMIS, matrixStats)
+# - Visualization (plotrix, psych, scatterplot3d, ggplot2, GGally)
+# - Data manipulation (dplyr)
+# - Development tools (devtools, used to install IMIS from the archive)
+#
+# You only need to install packages **once** on your computer.
+# After that, you can comment these lines out.
 
-# install.packages("tidyverse")
-# install.packages("dampack")
+## Install all required CRAN packages in one shot
+# install.packages(c(
+#   "dampack",        # cost-effectiveness analysis package
+#   "darthtools",     # DARTH tools package
+#   "lhs",           # Latin Hypercube Sampling
+#   "devtools",      # to install IMIS from archive
+#   "matrixStats",   # summary statistics
+#   "plotrix",       # for plotCI function
+#   "psych",         # for pairs.panels function
+#   "scatterplot3d", # 3D visualization
+#   "ggplot2",       # general plotting
+#   "GGally",        # ggplot-type correlation plots
+#   "dplyr"          # data manipulation
+# ))
+
+
+# Use pacman to install (if needed) and load all required packages
+pacman::p_load(
+  dampack,        # cost-effectiveness analysis package
+  darthtools,     # DARTH tools package
+  lhs,            # Latin Hypercube Sampling
+  devtools,       # development tools; used to install IMIS from archive
+  matrixStats,    # fast summary statistics on matrices
+  plotrix,        # for plotCI function and extra plotting tools
+  psych,          # for pairs.panels and descriptive analyses
+  scatterplot3d,  # 3D visualization (scatter plots)
+  ggplot2,        # general plotting (grammar of graphics)
+  GGally,         # ggplot2 extensions (correlation plots, pairs, etc.)
+  dplyr           # data manipulation (filter, mutate, summarise, etc.)
+)
+
+# Install IMIS from CRAN archive (only if not already installed)
+devtools::install_version( "IMIS", version = "0.1", repos = "http://cran.us.r-project.org" )
+
+### 02.02 Loading Packages -----------------------------------------------------
+# Load the packages (you need to do this **every time** you start a new R session)
+
+library(lhs)          # package for Latin Hypercube Sampling
+library(IMIS)         # package for Incremental Mixture Importance Sampling
+library(matrixStats)  # package used for summary statistics
+
+# visualization
+library(plotrix)       # for plotCI function
+library(psych)         # for pairs.panels function
+library(scatterplot3d) # higher-dimension visualization (3D scatterplots)
+library(ggplot2)       # general plotting
+library(GGally)        # ggplot-type correlation plots
+
+# data manipulation
+library(dplyr)         # for data manipulation (filter, mutate, etc.)
 
 ### 02.02 Loading Packages -----------------------------------------------------
 # Load the packages (do this every session)
 
 library(tidyverse)
 library(dampack)
-
+library(tidyverse)
 # You should see messages about the packages loaded
 
 
@@ -99,33 +132,26 @@ library(dampack)
 # 03 Working with Data ---------------------------------------------------------
 # ******************************************************************************
 
-### 03.01 Creating a Sample Dataset --------------------------------------------
-# We'll create a dataset of student study habits and exam performance
+### 03.01 Chilean life tables --------------------------------------------
 
-student_data <- data.frame(
-  student_id = 1:20,
-  age = c(22, 25, 23, 24, 22, 26, 23, 25, 24, 22,
-          23, 24, 25, 22, 26, 23, 24, 25, 22, 23),
-  hours_studied = c(5, 8, 6, 7, 4, 9, 6, 8, 7, 5,
-                    6, 7, 8, 5, 10, 6, 7, 8, 4, 6),
-  exam_score = c(65, 85, 70, 78, 60, 92, 72, 88, 80, 68,
-                 73, 79, 86, 67, 95, 74, 81, 87, 62, 75)
-)
+#Load the data
+
+df_lifetable_chile <- read_excel("data/lifetables_chile.xlsx")
 
 ### 03.02 Exploring Data Structure ---------------------------------------------
 # Always examine your data before analysis
 
 # View entire dataset in a spreadsheet-like window
-View(student_data)
+View(df_lifetable_chile)
 
 # Check the structure of the data
-str(student_data)
+str(df_lifetable_chile)
 
 # Get summary statistics for all variables
-summary(student_data)
+summary(df_lifetable_chile)
 
 # View first few rows
-head(student_data)
+head(df_lifetable_chile)
 
 
 # ******************************************************************************
@@ -135,25 +161,78 @@ head(student_data)
 ### 04.01 Filtering and Summarizing --------------------------------------------
 # Filter students who studied more than 7 hours
 
-high_study <- student_data %>%
-  filter(hours_studied > 7)
+# Load required libraries
 
-print(high_study)
 
-# Calculate average exam score by study hours category
-study_summary <- student_data %>%
-  mutate(study_category = case_when(
-    hours_studied < 6 ~ "Low",
-    hours_studied >= 6 & hours_studied < 8 ~ "Medium",
-    hours_studied >= 8 ~ "High"
-  )) %>%
-  group_by(study_category) %>%
-  summarise(
-    avg_score = mean(exam_score),
-    count = n()
+# Create the data frame (assuming df_lifetable_chile is already loaded)
+# If not, you would load it from your data source
+
+# Clean and process the data
+df_lifetable_chile_f <- df_lifetable_chile %>%
+  filter(`Edad del fallecido` != "Total" & 
+           `Edad del fallecido` != "No especificado") %>%
+  mutate(
+    # Extract numeric age - everything less than 1 year becomes 0
+    age_year = case_when(
+      str_detect(`Edad del fallecido`, "hora|día|mes") ~ 0,
+      str_detect(`Edad del fallecido`, "año") ~ as.numeric(str_extract(`Edad del fallecido`, "\\d+")),
+      TRUE ~ NA_real_
+    )
   )
 
-print(study_summary)
+# Summary by year
+df_lifetable_chile_f_sum <- df_lifetable_chile_f %>%
+  group_by(age_year) %>%
+  summarise(
+    total_deaths = sum(Casos, na.rm = TRUE),
+    percentage = (sum(Casos, na.rm = TRUE) / sum(df_lifetable_chile_f$Casos, na.rm = TRUE)) * 100,
+    .groups = "drop"
+  ) %>%
+  arrange(age_year) %>%
+  mutate(
+    # Create age variable capped at 100
+    age = ifelse(age_year > 100, 100, age_year),
+    # Create 5-year age groups
+    age_group_5yr = case_when(
+      age >= 0 & age < 5 ~ "0-4",
+      age >= 5 & age < 10 ~ "5-9",
+      age >= 10 & age < 15 ~ "10-14",
+      age >= 15 & age < 20 ~ "15-19",
+      age >= 20 & age < 25 ~ "20-24",
+      age >= 25 & age < 30 ~ "25-29",
+      age >= 30 & age < 35 ~ "30-34",
+      age >= 35 & age < 40 ~ "35-39",
+      age >= 40 & age < 45 ~ "40-44",
+      age >= 45 & age < 50 ~ "45-49",
+      age >= 50 & age < 55 ~ "50-54",
+      age >= 55 & age < 60 ~ "55-59",
+      age >= 60 & age < 65 ~ "60-64",
+      age >= 65 & age < 70 ~ "65-69",
+      age >= 70 & age < 75 ~ "70-74",
+      age >= 75 & age < 80 ~ "75-79",
+      age >= 80 & age < 85 ~ "80-84",
+      age >= 85 & age < 90 ~ "85-89",
+      age >= 90 & age < 95 ~ "90-94",
+      age >= 95 & age <= 100 ~ "95-100"
+    )
+  )
+
+# Summary by 5-year age groups
+df_lifetable_chile_f_sum_5y <- df_lifetable_chile_f_sum%>%
+  group_by(age_group_5yr) %>%
+  summarise(
+    total_deaths = sum(total_deaths),
+    percentage = sum(percentage),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # Factorize to maintain logical order
+    age_group_5yr = factor(age_group_5yr, levels = c(
+      "0-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35-39",
+      "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79",
+      "80-84", "85-89", "90-94", "95-100"
+    ))
+  )
 
 
 # ******************************************************************************
@@ -163,68 +242,50 @@ print(study_summary)
 ### 05.01 Scatter Plot ---------------------------------------------------------
 # Visualize relationship between hours studied and exam scores
 
-ggplot(student_data, aes(x = hours_studied, y = exam_score)) +
-  geom_point(color = "steelblue", size = 3) +
-  geom_smooth(method = "lm", se = FALSE, color = "red") +
+ggplot(df_lifetable_chile_f_sum %>% filter(!is.na(age)), 
+             aes(x = age, y = total_deaths)) +
+  geom_line(color = "#2E86AB", size = 1) +
+  geom_point(color = "#2E86AB", size = 2, alpha = 0.6) +
   labs(
-    title = "Relationship between Study Hours and Exam Scores",
-    x = "Hours Studied",
-    y = "Exam Score"
+    title = "Life Table: Distribution of Deaths by Age in Chile",
+    subtitle = "Ages 0 to 100 (100+ grouped together)",
+    x = "Age (years)",
+    y = "Number of Deaths",
+    caption = paste0("Total deaths: ", format(sum(df_lifetable_chile_f_sum$Casos, na.rm = TRUE), big.mark = ","),
+                     "\nNote: Age 0 includes all deaths under 1 year (hours, days, months)")
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 11, color = "gray40"),
+    axis.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    plot.caption = element_text(hjust = 0, size = 9, color = "gray40")
+  ) +
+  scale_x_continuous(breaks = seq(0, 100, 10))
 
-### 05.02 Histogram ------------------------------------------------------------
-# Distribution of exam scores
-
-ggplot(student_data, aes(x = exam_score)) +
-  geom_histogram(binwidth = 5, fill = "steelblue", color = "white") +
+# Bar chart by 5-year age groups
+ggplot(df_lifetable_chile_f_sum_5y, 
+       aes(x = age_group_5yr, y = total_deaths, fill = total_deaths)) +
+  geom_col() +
+  geom_text(aes(label = paste0(format(total_deaths, big.mark = ","), "\n", 
+                               round(percentage, 1), "%")), 
+            vjust = -0.3, size = 3) +
+  scale_fill_gradient(low = "#A8DADC", high = "#1D3557") +
   labs(
-    title = "Distribution of Exam Scores",
-    x = "Exam Score",
-    y = "Frequency"
+    title = "Deaths by 5-Year Age Groups in Chile",
+    x = "Age Group",
+    y = "Number of Deaths"
   ) +
-  theme_minimal()
-
-### 05.03 Box Plot -------------------------------------------------------------
-# Exam scores by age
-
-ggplot(student_data, aes(x = factor(age), y = exam_score)) +
-  geom_boxplot(fill = "lightblue", color = "darkblue") +
-  labs(
-    title = "Exam Scores by Age",
-    x = "Age",
-    y = "Exam Score"
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.minor = element_blank()
   ) +
-  theme_minimal()
-
-
-# ******************************************************************************
-# 06 Statistical Analysis ------------------------------------------------------
-# ******************************************************************************
-
-### 06.01 Correlation Analysis -------------------------------------------------
-# Examine the relationship between hours studied and exam score
-
-correlation <- cor(student_data$hours_studied, student_data$exam_score)
-print(paste("Correlation coefficient:", round(correlation, 3)))
-
-### 06.02 Linear Regression Model ----------------------------------------------
-# Build a model to predict exam scores from study hours
-
-model <- lm(exam_score ~ hours_studied, data = student_data)
-summary(model)
-
-# Visualize the regression
-ggplot(student_data, aes(x = hours_studied, y = exam_score)) +
-  geom_point(size = 3, alpha = 0.6) +
-  geom_smooth(method = "lm", se = TRUE, color = "red", fill = "pink") +
-  labs(
-    title = "Linear Regression: Study Hours Predict Exam Scores",
-    subtitle = paste("R² =", round(summary(model)$r.squared, 3)),
-    x = "Hours Studied",
-    y = "Exam Score"
-  ) +
-  theme_minimal()
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
 
 
 # ******************************************************************************
@@ -255,6 +316,76 @@ icer_hiv <- dampack::calculate_icers(cost = v_hiv_costs,
 # View results
 print(icer_hiv)
 
+#    Strategy  Cost   Effect Inc_Cost  Inc_Effect      ICER Status
+# 1 Status Quo 26000 23.10417       NA          NA        NA     ND
+# 2   One time 27000 23.13083     1000 0.026666667  37500.00     ND
+# 3     5 year 28020 23.14833     1020 0.017500000  58285.71     ND
+# 4     3 year 28440 23.15250      420 0.004166667 100800.00     ND
+# 5     1 year 29440 23.14667       NA          NA        NA      D
+
+# ------------------------------------------------------------------------------
+# How incremental values are calculated
+# ------------------------------------------------------------------------------
+# The strategies are first ordered by:
+#  1) Increasing cost
+#  2) Removal of dominated / extendedly dominated strategies
+#
+# Then, for each non-dominated strategy i (after the first on the frontier):
+#   Inc_Cost_i   = Cost_i   - Cost_(i-1)
+#   Inc_Effect_i = Effect_i - Effect_(i-1)
+#
+# where (i-1) is the previous NON-DOMINATED strategy on the cost-effectiveness
+# frontier. The ICER is then:
+#   ICER_i = Inc_Cost_i / Inc_Effect_i
+#
+# For the reference (cheapest) strategy and for dominated strategies,
+# Inc_Cost, Inc_Effect, and ICER are set to NA.
+
+# ------------------------------------------------------------------------------
+# Interpretation of ICER results
+# ------------------------------------------------------------------------------
+#
+# Columns:
+# - "Cost"   = expected total cost per person for each strategy.
+# - "Effect" = expected health outcome (e.g., QALYs) per person.
+# - "Inc_Cost"   = additional cost vs. the previous non-dominated strategy.
+# - "Inc_Effect" = additional QALYs vs. the previous non-dominated strategy.
+# - "ICER"   = incremental cost-effectiveness ratio = Inc_Cost / Inc_Effect.
+# - "Status" = ND = non-dominated; D = dominated.
+#
+# Row 1: Status Quo
+# - Cheapest option (Cost = 26,000) and baseline Effect = 23.10.
+# - No incremental values (Inc_Cost, Inc_Effect, ICER = NA) because it is
+#   the reference strategy on the frontier.
+#
+# Row 2: One time
+# - Compared with Status Quo:
+#   Inc_Cost   = 27,000 - 26,000 = 1,000
+#   Inc_Effect = 23.13083 - 23.10417 ≈ 0.02667
+# - ICER = 1,000 / 0.02667 ≈ 37,500 per QALY.
+# - Marked ND (non-dominated), so it remains on the cost-effectiveness frontier.
+#
+# Row 3: 5 year
+# - Compared with One time:
+#   Inc_Cost   = 28,020 - 27,000 = 1,020
+#   Inc_Effect = 23.14833 - 23.13083 = 0.01750
+# - ICER ≈ 1,020 / 0.01750 ≈ 58,286 per QALY.
+# - Still ND, so also on the frontier.
+#
+# Row 4: 3 year
+# - Compared with 5 year:
+#   Inc_Cost   = 28,440 - 28,020 = 420
+#   Inc_Effect = 23.15250 - 23.14833 ≈ 0.00417
+# - ICER ≈ 420 / 0.00417 ≈ 100,800 per QALY.
+# - ND, but with a much higher ICER (more expensive per extra QALY).
+#
+# Row 5: 1 year
+# - Costs more (29,440) but has LOWER Effect (23.14667) than the 3 year
+#   strategy (23.15250).
+# - It is strictly dominated (more costly and less effective),
+#   so Status = "D" and Inc_Cost / Inc_Effect / ICER are NA.
+
+
 ### 07.02 Visualize HIV CEA Results --------------------------------------------
 
 # Basic cost-effectiveness plane
@@ -280,7 +411,6 @@ plot(icer_hiv, label = "all") +
 ## Load C. diff PSA data (included in dampack package)
 data("psa_cdiff")
 
-dampack:::summary.psa_cdiff
 
 ## Calculate mean cost and effectiveness for each strategy
 df_cdiff_ce <- dampack:::summary.psa(psa_cdiff,)
@@ -322,52 +452,62 @@ plot(icer_cdiff,
      currency = "USD", 
      effect_units = "quality-adjusted life-years")
 
+#   Strategy     Cost   Effect Inc_Cost Inc_Effect      ICER Status
+# 1        s3 57336.01 12.93996       NA         NA        NA     ND
+# 2       s27 57541.25 13.01406 205.2466 0.07410015  2769.855     ND
+# 3       s33 57642.26 13.03891 101.0061 0.02484756  4065.031     ND
+# 4       s31 57934.07 13.09663 291.8156 0.05771416  5056.222     ND
+# 5       s43 58072.11 13.11286 138.0394 0.01623188  8504.216     ND
+# 6       s44 58665.78 13.12833 593.6686 0.01547517 38362.652     ND
+# 7       s39 57814.65 13.04628       NA         NA        NA     ED
+# 8        s4 57887.48 12.99707       NA         NA        NA      D
+# 9       s13 58018.63 13.06504       NA         NA        NA      D
+#10       s37 58081.79 13.10297       NA         NA        NA      D
+#11      s20 58634.20 13.11006       NA         NA        NA      D
 
-# ******************************************************************************
-# 08 Saving Your Work ----------------------------------------------------------
-# ******************************************************************************
+# ------------------------------------------------------------------------------
+# Interpretation of PSA ICER table
+# ------------------------------------------------------------------------------
+# This table summarizes results from the probabilistic sensitivity analysis (PSA).
+# Each row represents the *expected* (mean) cost and effect across PSA iterations.
+#
+# The strategies are ordered by increasing expected cost, and then classified as:
+# - ND: Non-dominated (on the cost-effectiveness frontier)
+# - ED: Extendedly dominated
+# - D : Dominated
 
-### 08.01 Create Necessary Folders ---------------------------------------------
-# Create folders if they don't exist
+# Non-dominated strategies (ND)
+# Strategies s3, s27, s33, s31, s43, and s44 form the cost-effectiveness frontier.
+# Moving along the frontier:
+# - Costs and effects both increase
+# - ICERs increase monotonically, as expected under efficiency
 
-if (!dir.exists("figures")) dir.create("figures")
-if (!dir.exists("data")) dir.create("data")
+# Example interpretation:
+# - s27 is the first improvement over s3 and has a very low ICER (~2,770),
+#   meaning large health gains for a small increase in cost.
+# - s33 and s31 provide additional gains at higher ICERs.
+# - s44 is the most effective strategy but also much more expensive,
+#   with an ICER of ~38,000 per unit of effect.
 
-### 08.02 Save Plots -----------------------------------------------------------
-# Save student data plots
+# Extended dominance (ED)
+# Strategy s39 is extendedly dominated:
+# - It is less efficient than a linear combination of two ND strategies
+# - Even though it improves health, it is excluded from the optimal frontier
 
-ggsave("figures/study_score_relationship.png", 
-       width = 8, height = 6, dpi = 300)
+#  Dominated (D)
+# Strategies s4, s13, s37, and s20 are strictly dominated:
+# - They cost more and produce fewer effects than at least one other strategy
+# - They are never optimal at any willingness-to-pay threshold
 
-# Save HIV CEA plot
-hiv_plot <- plot(icer_hiv, label = "all") +
-  theme_classic() +
-  ggtitle("Cost-effectiveness of HIV screening strategies")
 
-ggsave("figures/hiv_cea_plot.png", 
-       plot = hiv_plot,
-       width = 8, height = 6, dpi = 300)
-
-# Save C. diff CEA plot
-cdiff_plot <- plot(icer_cdiff, plot_frontier_only = TRUE)
-
-ggsave("figures/cdiff_cea_plot.png", 
-       plot = cdiff_plot,
-       width = 8, height = 6, dpi = 300)
-
-print("All plots saved to figures/ folder")
-
-### 08.03 Save Data ------------------------------------------------------------
-# Save student data
-write.csv(student_data, "data/student_data.csv", row.names = FALSE)
-write.csv(study_summary, "data/study_summary.csv", row.names = FALSE)
-
-# Save CEA results
-write.csv(icer_hiv, "data/hiv_cea_results.csv", row.names = FALSE)
-write.csv(icer_cdiff, "data/cdiff_cea_results.csv", row.names = FALSE)
-
-print("All data saved to data/ folder")
-
+# Along the cost-effectiveness frontier, ICERs must be monotonically increasing.
+# This means that each more effective strategy should have a higher (or equal)
+# ICER than the previous one.
+#
+# If an ICER decreases after increasing (i.e., goes up and then down),
+# the intermediate strategy must be removed from the frontier.
+# Such a strategy is said to be *extendedly dominated* and is excluded
+# from cost-effectiveness consideration.
 
 # ******************************************************************************
 # 09 Key Takeaways -------------------------------------------------------------
