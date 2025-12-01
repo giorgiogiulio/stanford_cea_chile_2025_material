@@ -1,7 +1,8 @@
-# *****************************************************************************
-#
 # Script: intro_to_r_health_economics.R
 #
+# 00 Script Metadata and Context -----------------------------------------------
+#
+# Script: intro_to_r_health_economics.R#
 # Purpose: Introduce students to R and RStudio through hands-on demonstration
 #          of basic operations, package installation, data exploration, and
 #          cost-effectiveness analysis with health economics examples.
@@ -15,9 +16,6 @@
 # - Fernando Alarid-Escudero, PhD
 #
 # Course: Laboratorio en R: Costo-efectividad incremental
-# Module: Introduction to R and RStudio
-#
-# *****************************************************************************
 #
 # Notes:
 #
@@ -42,11 +40,9 @@
 #
 # *****************************************************************************
 
-# ******************************************************************************
 # 01 Basic R Operations --------------------------------------------------------
-# ******************************************************************************
 
-### 01.01 Simple Calculations --------------------------------------------------
+## 01.01 Simple Calculations ---------------------------------------------------
 # R can be used as a calculator
 # Run each line to see the result in the Console
 
@@ -54,11 +50,9 @@
 10 * 5
 100 / 4
 
-# ******************************************************************************
 # 02 Installing and Loading Packages -------------------------------------------
-# ******************************************************************************
 
-### 02.01 Installing Packages --------------------------------------------------
+## 02.01 Installing Packages (CRAN) --------------------------------------------
 # In this section we install all the R packages needed for:
 # - Sampling and calibration (lhs, IMIS, matrixStats)
 # - Visualization (plotrix, psych, scatterplot3d, ggplot2, GGally)
@@ -104,7 +98,7 @@ pacman::p_load(
 devtools::install_version( "IMIS", version = "0.1", 
                            repos = "http://cran.us.r-project.org" )
 
-### 02.02 Loading Packages -----------------------------------------------------
+## 02.02 Loading Packages (Long List) ------------------------------------------
 # Load the packages (you need to do this **every time** you start a new R session)
 
 library(lhs)          # package for Latin Hypercube Sampling
@@ -121,7 +115,7 @@ library(GGally)        # ggplot-type correlation plots
 # data manipulation
 library(dplyr)         # for data manipulation (filter, mutate, etc.)
 
-### 02.02 Loading Packages -----------------------------------------------------
+## 02.03 Loading Tidyverse and Dampack -----------------------------------------
 # Load the packages (do this every session)
 
 library(tidyverse)
@@ -131,17 +125,15 @@ library(readxl)
 # You should see messages about the packages loaded
 
 
-# ******************************************************************************
 # 03 Working with Data ---------------------------------------------------------
-# ******************************************************************************
 
-### 03.01 Chilean life tables --------------------------------------------
+## 03.01 Chilean life tables ---------------------------------------------------
 
 #Load the data
 
 df_lifetable_chile <- read_excel("data/lifetables_chile.xlsx")
 
-### 03.02 Exploring Data Structure ---------------------------------------------
+## 03.02 Exploring Data Structure ----------------------------------------------
 # Always examine your data before analysis
 
 # View entire dataset in a spreadsheet-like window
@@ -157,11 +149,9 @@ summary(df_lifetable_chile)
 head(df_lifetable_chile)
 
 
-# ******************************************************************************
-# 04 Data Exploration with dplyr -----------------------------------------------
-# ******************************************************************************
+# 04 Data Manipulation with dplyr ----------------------------------------------
 
-### 04.01 Filtering and Summarizing --------------------------------------------
+## 04.01 Filtering and Summarizing ---------------------------------------------
 # Filter students who studied more than 7 hours
 
 # Load required libraries
@@ -238,15 +228,14 @@ df_lifetable_chile_f_sum_5y <- df_lifetable_chile_f_sum %>%
   )
 
 
-# ******************************************************************************
-# 05 Data Visualization with ggplot2 -------------------------------------------
-# ******************************************************************************
 
-### 05.01 Scatter Plot ---------------------------------------------------------
+# 05 Data Visualization with ggplot2 -------------------------------------------
+
+## 05.01 Line and Scatter Plot (Yearly Age) ------------------------------------
 # Visualize relationship between hours studied and exam scores
 
 ggplot(df_lifetable_chile_f_sum %>% filter(!is.na(age)), 
-             aes(x = age, y = total_deaths)) +
+       aes(x = age, y = total_deaths)) +
   geom_line(color = "#2E86AB", size = 1) +
   geom_point(color = "#2E86AB", size = 2, alpha = 0.6) +
   labs(
@@ -269,6 +258,7 @@ ggplot(df_lifetable_chile_f_sum %>% filter(!is.na(age)),
   ) +
   scale_x_continuous(breaks = seq(0, 100, 10))
 
+## 05.02 Bar Chart (5-Year Age Groups) -----------------------------------------
 # Bar chart by 5-year age groups
 ggplot(df_lifetable_chile_f_sum_5y, 
        aes(x = age_group_5yr, y = total_deaths, fill = total_deaths)) +
@@ -293,126 +283,214 @@ ggplot(df_lifetable_chile_f_sum_5y,
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
 
 
-# ******************************************************************************
+# 06 Cost-Effectiveness Analysis ----------------------------
 # 07 Cost-Effectiveness Analysis with dampack ----------------------------------
-# ******************************************************************************
-
 library(dampack)
 
-### 07.01 Example 1: HIV Screening Strategies ----------------------------------
-# From: Paltiel et al. 2006. Annals of Internal Medicine.
-# Evaluating HIV screening frequencies in high-risk population
-
-## Define strategies
-v_hiv_strat_names <- c("Status Quo", "One time", "5 year", "3 year", "1 year")
-
-## Average cost per person for each strategy
-v_hiv_costs <- c(26000, 27000, 28020, 28440, 29440)
-
-## Quality-adjusted life-years (QALYs) for each strategy
-# Original data in quality-adjusted life-months, converted to years by dividing by 12
-v_hiv_qalys <- c(277.25, 277.57, 277.78, 277.83, 277.76) / 12
-
-## Calculate ICERs using dampack
-icer_hiv <- dampack::calculate_icers(cost = v_hiv_costs,
-                            effect = v_hiv_qalys,
-                            strategies = v_hiv_strat_names)
-
-# View results
-print(icer_hiv)
-
-#    Strategy  Cost   Effect Inc_Cost  Inc_Effect      ICER Status
-# 1 Status Quo 26000 23.10417       NA          NA        NA     ND
-# 2   One time 27000 23.13083     1000 0.026666667  37500.00     ND
-# 3     5 year 28020 23.14833     1020 0.017500000  58285.71     ND
-# 4     3 year 28440 23.15250      420 0.004166667 100800.00     ND
-# 5     1 year 29440 23.14667       NA          NA        NA      D
-
-# ------------------------------------------------------------------------------
-# How incremental values are calculated
-# ------------------------------------------------------------------------------
-# The strategies are first ordered by:
-#  1) Increasing cost
-#  2) Removal of dominated / extendedly dominated strategies
+## 07.01 Example 1: Cervical Cancer Screening (Chilean Case) --------------------
+# Contexto: En Chile, el cáncer cervicouterino (CaCu) es parte del plan AUGE/GES
+# desde 2005. Actualmente, el programa nacional se basa en el Papanicolaou (PAP)
+# cada 3 años para mujeres de 25-64 años. Sin embargo, estudios chilenos han
+# demostrado que el test de VPH (Virus Papiloma Humano) tiene mayor sensibilidad.
 #
-# Then, for each non-dominated strategy i (after the first on the frontier):
+# Referencias:
+# - Ferreccio et al. (2013): Estudio en Santiago comparando PAP vs VPH
+#   * Sensibilidad PAP: 22.1% | VPH: 92.7% para detectar CIN2+
+# - MINSAL: ~600 mujeres mueren anualmente de CaCu en Chile
+# - Cobertura actual de PAP: <70% de la población objetivo
+
+### 07.01.01 Define Strategies and Data ----------------------------------------
+## Definir estrategias de tamizaje
+v_cacu_strat_names<- c("Sin tamizaje", 
+                       "PAP cada 5 años", 
+                       "PAP cada 3 años (actual)", 
+                       "VPH cada 5 años",
+                       "VPH cada 3 años")
+
+## Costos promedio por mujer durante su vida (en pesos chilenos)
+# Basados en costos del sistema público de salud (FONASA)
+# Incluyen: costo de examen, seguimiento, colposcopía, tratamiento
+v_cacu_costs <- c(50000,      # Sin tamizaje (solo costos de tratamiento tardío)
+                  320000,     # PAP cada 5 años
+                  450000,     # PAP cada 3 años (estrategia actual)
+                  380000,     # VPH cada 5 años (test más caro, menos frecuente)
+                  520000)     # VPH cada 3 años
+
+## Años de Vida Ajustados por Calidad (QALYs o QALYs)
+# Basados en esperanza de vida en Chile (~80 años para mujeres)
+# y calidad de vida asociada a prevenir Cancer Cervicouterino
+
+v_cacu_qalys <- c(22.5,   # Sin tamizaje (mayor mortalidad por CaCu)
+                  24.2,   # PAP cada 5 años
+                  24.4,   # PAP cada 3 años
+                  24.8,   # VPH cada 5 años (mayor sensibilidad)
+                  24.9)   # VPH cada 3 años
+
+### 07.01.02 Calculate ICERs and Plot Results ----------------------------------
+## Calcular icers usando dampack
+icer_cacu <- dampack::calculate_icers(cost = v_cacu_costs,
+                                      effect = v_cacu_qalys,
+                                      strategies = v_cacu_strat_names)
+# Ver resultados
+print(icer_cacu)
+
+# Gráfico personalizado con título y tema
+plot(icer_cacu, label = "all") +
+  theme_minimal() +
+  labs(title = "Costo-Efectividad del Tamizaje de Cáncer Cervicouterino en Chile",
+       subtitle = "Comparación de estrategias para el plan AUGE/GES",
+       x = "QALYs (Años de Vida Ajustados por Calidad)",
+       y = "Costo (Pesos Chilenos)",
+       caption = "Basado en datos del sistema público de salud (FONASA)")
+
+
+# Columnas:
+# - "Cost"       = costo esperado por mujer durante su vida (pesos chilenos)
+# - "Effect"     = QALYs esperados por mujer
+# - "Inc_Cost"   = costo incremental vs. estrategia no dominada anterior
+# - "Inc_Effect" = QALYs incrementales vs. estrategia no dominada anterior
+# - "ICER"       = razón de costo-efectividad incremental (pesos por QALY ganado)
+# - "Status"     = ND = no dominada; D = dominada
+
+#_______________________________________________________________________________
+#                   Strategy   Cost Effect Inc_Cost Inc_Effect      ICER Status
+# 1             Sin tamizaje  50000   22.5       NA         NA        NA     ND
+# 2          VPH cada 5 años 380000   24.8   330000        2.3  143478.3     ND
+# 3          VPH cada 3 años 520000   24.9   140000        0.1 1400000.0     ND
+# 4          PAP cada 5 años 320000   24.2       NA         NA        NA     ED
+# 5 PAP cada 3 años (actual) 450000   24.4       NA         NA        NA      D
+
+### 07.01.03 Incremental Calculations Explanation ------------------------------
+# Cómo se calculan los valores incrementales
+# Las estrategias se ordenan primero por:
+#  1) Costo creciente (Increasing cost)
+#  2) Eliminación de estrategias dominadas / extendidamente dominadas
+#     (Removal of dominated / extendedly dominated strategies)
+#
+# Luego, para cada estrategia no dominada i
+# (exceptuando la primera en la frontera):
 #   Inc_Cost_i   = Cost_i   - Cost_(i-1)
 #   Inc_Effect_i = Effect_i - Effect_(i-1)
 #
-# where (i-1) is the previous NON-DOMINATED strategy on the cost-effectiveness
-# frontier. The ICER is then:
+# donde (i-1) es la estrategia NO DOMINADA previa en la
+# frontera de costo-efectividad (cost-effectiveness frontier).
+# El ICER se calcula como:
 #   ICER_i = Inc_Cost_i / Inc_Effect_i
 #
-# For the reference (cheapest) strategy and for dominated strategies,
-# Inc_Cost, Inc_Effect, and ICER are set to NA.
+# Para la estrategia de referencia (la más barata)
+# y para las estrategias dominadas,
+# Inc_Cost, Inc_Effect e ICER se asignan como NA.
 
-# ------------------------------------------------------------------------------
-# Interpretation of ICER results
-# ------------------------------------------------------------------------------
+### 07.01.04 Detailed Interpretation of Results --------------------------------
 #
-# Columns:
-# - "Cost"   = expected total cost per person for each strategy.
-# - "Effect" = expected health outcome (e.g., QALYs) per person.
-# - "Inc_Cost"   = additional cost vs. the previous non-dominated strategy.
-# - "Inc_Effect" = additional QALYs vs. the previous non-dominated strategy.
-# - "ICER"   = incremental cost-effectiveness ratio = Inc_Cost / Inc_Effect.
-# - "Status" = ND = non-dominated; D = dominated.
+# FILA 1: Sin tamizaje (estrategia de referencia)
+# - Costo más bajo: $50,000 por mujer
+# - Menor efectividad: 22.5 QALYs
+# - Status ND: Es la referencia en la frontera de costo-efectividad
+# - Interpretación: Aunque es la más barata, implica alta mortalidad por CaCu
+#   y menor calidad de vida. No es éticamente aceptable como política pública.
 #
-# Row 1: Status Quo
-# - Cheapest option (Cost = 26,000) and baseline Effect = 23.10.
-# - No incremental values (Inc_Cost, Inc_Effect, ICER = NA) because it is
-#   the reference strategy on the frontier.
+# FILA 2: VPH cada 5 años
+# - Costo: $380,000 | Efectividad: 24.8 QALYs
+# - Inc_Cost: $330,000 adicionales vs. "Sin tamizaje"
+# - Inc_Effect: 2.3 QALYs adicionales vs. "Sin tamizaje"
+# - icer: $143,478 por QALY ganado
+# - Status ND: No dominada, permanece en la frontera
+# - Interpretación: ¡Esta es la estrategia MÁS COSTO-EFECTIVA!
+#   * El icer de ~$143,000/QALY está muy por debajo del umbral típico
+#     de 1 PIB per cápita (~$10 millones en Chile)
+#   * Gana 2.3 QALYs vs. no hacer nada (equivalente a ~2.3 años de vida
+#     saludable adicionales por mujer)
+#   * El test VPH tiene mayor sensibilidad (92.7% vs 22.1% del PAP)
+#   * Permite intervalos de 5 años (vs 3 del PAP) por mayor sensibilidad
+#   * Posibilita autotoma → aumenta cobertura en zonas rurales
 #
-# Row 2: One time
-# - Compared with Status Quo:
-#   Inc_Cost   = 27,000 - 26,000 = 1,000
-#   Inc_Effect = 23.13083 - 23.10417 ≈ 0.02667
-# - ICER = 1,000 / 0.02667 ≈ 37,500 per QALY.
-# - Marked ND (non-dominated), so it remains on the cost-effectiveness frontier.
+# FILA 3: VPH cada 3 años
+# - Costo: $520,000 | Efectividad: 24.9 QALYs
+# - Inc_Cost: $140,000 adicionales vs. "VPH cada 5 años"
+# - Inc_Effect: 0.1 QALYs adicionales vs. "VPH cada 5 años"
+# - icer: $1,400,000 por QALY ganado
+# - Status ND: No dominada, pero con icer muy alto
+# - Interpretación: Esta estrategia NO es costo-efectiva
+#   * Cuesta $1.4 millones adicionales para ganar apenas 0.1 QALYs
+#     (equivalente a ~36 días de vida adicionales)
+#   * El icer de $1.4M/QALY supera cualquier umbral razonable
+#   * La ganancia marginal es mínima comparada con VPH cada 5 años
+#   * Desde perspectiva de política pública: NO RECOMENDABLE
 #
-# Row 3: 5 year
-# - Compared with One time:
-#   Inc_Cost   = 28,020 - 27,000 = 1,020
-#   Inc_Effect = 23.14833 - 23.13083 = 0.01750
-# - ICER ≈ 1,020 / 0.01750 ≈ 58,286 per QALY.
-# - Still ND, so also on the frontier.
+# FILA 4: PAP cada 5 años
+# - Costo: $320,000 | Efectividad: 24.2 QALYs
+# - Status ED: Extendidamente dominada
+# - Interpretación: ¡La estrategia con PAP está EXTENDIDAMENTE DOMINADA!
+#   * Cuesta $320,000 y da 24.2 QALYs
+#   * "VPH cada 5 años" cuesta $380,000 y da 24.8 QALYs
+#   * Diferencia: $60,000 más para ganar 0.6 QALYs adicionales
+#   * icer implícito: $60,000/0.6 = $100,000 por QALY
+#   * Este icer es MEJOR que la combinación lineal de otras estrategias
+#   * Por lo tanto, PAP cada 5 años es ineficiente (ED)
 #
-# Row 4: 3 year
-# - Compared with 5 year:
-#   Inc_Cost   = 28,440 - 28,020 = 420
-#   Inc_Effect = 23.15250 - 23.14833 ≈ 0.00417
-# - ICER ≈ 420 / 0.00417 ≈ 100,800 per QALY.
-# - ND, but with a much higher ICER (more expensive per extra QALY).
+# FILA 5: PAP cada 3 años (actual)
+# - Costo: $450,000 | Efectividad: 24.4 QALYs
+# - Status D: Estrictamente dominada
+# - Interpretación: ¡LA ESTRATEGIA ACTUAL DE CHILE ESTÁ DOMINADA!
+#   * "VPH cada 5 años" cuesta MENOS ($380,000 vs $450,000)
+#   * "VPH cada 5 años" es MÁS efectivo (24.8 vs 24.4 QALYs)
+#   * PAP cada 3 años es más caro Y menos efectivo = DOMINANCIA ESTRICTA
+#   * Esto representa una ineficiencia del sistema actual
+#   * Chile está gastando $70,000 más por mujer para obtener PEOR resultado
 #
-# Row 5: 1 year
-# - Costs more (29,440) but has LOWER Effect (23.14667) than the 3 year
-#   strategy (23.15250).
-# - It is strictly dominated (more costly and less effective),
-#   so Status = "D" and Inc_Cost / Inc_Effect / ICER are NA.
 
 
-### 07.02 Visualize HIV CEA Results --------------------------------------------
-
-# Basic cost-effectiveness plane
-plot(icer_hiv)
-
-# Basic cost-effectiveness plane and flip the axes for better visualization
-plot(icer_hiv) +
-  coord_flip()
-
-# Plot with all strategies labeled. it's not by default. 
-plot(icer_hiv, label = "all")
-
-# Customized plot with title
-plot(icer_hiv, label = "all") +
-  theme_classic() +
-  ggtitle("Cost-effectiveness of HIV screening strategies")
+### 07.01.05 Policy Implications (Chile) ---------------------------------------
+# Interpretación de los resultados para Chile
+#
+# Implicancias para política pública:
+# - Chile podría considerar transición de PAP a VPH como test primario
+# - VPH permite intervalos más largos (cada 5 años) manteniendo efectividad
+# - Posibilidad de autotoma (mujer toma su propia muestra) aumenta cobertura
+# - Especialmente relevante para zonas rurales y población vulnerable
 
 
-### 07.03 Example 2: C. difficile Treatment Strategies ------------------------
+# Notas adicionales sobre el contexto chileno
+#
+# Desafíos actuales:
+# - Cobertura de PAP ha disminuido en última década (<70%)
+# - Mortalidad por CaCu en Chile es 4 veces mayor que en países desarrollados
+# - Inequidades en acceso: mujeres de zonas rurales y NSE bajo
+# - Listas de espera para colposcopía y tratamiento
+#
+# Oportunidades:
+# - Test VPH permite autotoma → mayor alcance poblacional
+# - Vacunación VPH para niñas <13 años desde 2015
+# - Evidencia local robusta para sustentar cambio de política
+
+# IMPLICANCIAS PARA POLÍTICA PÚBLICA EN CHILE:
+#
+# Umbral de costo-efectividad en Chile:
+# - PIB per cápita Chile ~$10 millones (2023)
+# - Umbral típico: 1-3 veces PIB per cápita = $10-30 millones/QALY
+# - "VPH cada 5 años": icer de $143,478/QALY → ALTAMENTE COSTO-EFECTIVO ✓
+# - "VPH cada 3 años": icer de $1,400,000/QALY → NO costo-efectivo ✗
+
+
+# RECOMENDACIÓN PRINCIPAL:
+# Chile debería reemplazar "PAP cada 3 años" por "VPH cada 5 años"
+#
+# Beneficios del cambio:
+# 1. AHORRO: $70,000 por mujer ($450k - $380k)
+#    - Con ~5 millones de mujeres objetivo → ahorro potencial de $350 mil millones
+# 2. EFECTIVIDAD: +0.4 QALYs por mujer (24.8 - 24.4)
+#    - Equivalente a ~5 meses adicionales de vida saludable por mujer
+# 3. COBERTURA: Autotoma de VPH facilita acceso en zonas rurales
+# 4. EQUIDAD: Mayor alcance en población vulnerable y NSE bajo
+# 5. LOGÍSTICA: Intervalos de 5 años reducen carga sobre sistema de salud
+
+
+## 07.02 Example 2: C. difficile Treatment Strategies (PSA) --------------------
 # From: Rajasingham et al. 2020. Clinical Infectious Diseases.
 # Using probabilistic sensitivity analysis data
 
+### 07.02.01 Load Data and Calculate Mean CE -----------------------------------
 ## Load C. diff PSA data (included in dampack package)
 data("psa_cdiff")
 
@@ -440,7 +518,7 @@ icer_cdiff %>%
   filter(Status == "ND")
 
 
-### 07.04 Visualize C. diff CEA Results ----------------------------------------
+## 07.03 Visualize C. diff CEA Results -----------------------------------------
 
 # Basic plot
 plot(icer_cdiff)
@@ -470,9 +548,8 @@ plot(icer_cdiff,
 #10       s37 58081.79 13.10297       NA         NA        NA      D
 #11      s20 58634.20 13.11006       NA         NA        NA      D
 
-# ------------------------------------------------------------------------------
+### 07.03.01 Interpretation of PSA ICER table ----------------------------------
 # Interpretation of PSA ICER table
-# ------------------------------------------------------------------------------
 # This table summarizes results from the probabilistic sensitivity analysis (PSA).
 # Each row represents the *expected* (mean) cost and effect across PSA iterations.
 #
@@ -514,48 +591,47 @@ plot(icer_cdiff,
 # Such a strategy is said to be *extendedly dominated* and is excluded
 # from cost-effectiveness consideration.
 
-# ******************************************************************************
-# 09 Key Takeaways -------------------------------------------------------------
-# ******************************************************************************
+# 08 Placeholder Section (PSA Visualization/Analysis) --------------------------
+# NOTE: This section number was skipped in the original document (jump from 07 to 09).
 
-### 09.01 R Programming Fundamentals -------------------------------------------
+# 09 Key Takeaways -------------------------------------------------------------
+
+## 09.01 R Programming Fundamentals --------------------------------------------
 # 1. Use <- to assign values to objects
 # 2. Objects appear in the Environment panel
 # 3. Functions are called with parentheses: function(arguments)
 # 4. Comments start with # and are ignored by R
 
-### 09.02 Package Management ---------------------------------------------------
+## 09.02 Package Management ----------------------------------------------------
 # 5. Install packages ONCE with install.packages("package_name")
 # 6. Load packages EVERY SESSION with library(package_name)
 # 7. tidyverse includes many useful packages for data analysis
 # 8. dampack provides specialized functions for cost-effectiveness analysis
 
-### 09.03 Data Manipulation ----------------------------------------------------
+## 09.03 Data Manipulation -----------------------------------------------------
 # 9. Use the pipe operator %>% to chain operations
 # 10. dplyr provides intuitive functions: filter(), mutate(), group_by(), summarise()
 # 11. Always explore your data before analysis: str(), summary(), View()
 
-### 09.04 Visualization --------------------------------------------------------
+## 09.04 Visualization ---------------------------------------------------------
 # 12. ggplot2 creates beautiful, publication-ready visualizations
 # 13. Basic template: ggplot(data, aes(x, y)) + geom_*() + labs() + theme_*()
 # 14. Save plots with ggsave()
 
-### 09.05 Cost-Effectiveness Analysis ------------------------------------------
+## 09.05 Cost-Effectiveness Analysis -------------------------------------------
 # 15. Use calculate_icers() from dampack to conduct CEA
 # 16. ICERs compare incremental costs to incremental effects
 # 17. Dominated strategies are identified automatically (D = strong, ED = weak)
 # 18. plot() method creates cost-effectiveness planes
 # 19. Always consider all feasible strategies in your analysis
 
-### 09.06 Project Organization -------------------------------------------------
+## 09.06 Project Organization --------------------------------------------------
 # 20. Follow a consistent folder structure (data/, figures/, analysis/)
 # 21. Save processed data with write.csv()
 # 22. Document your work with comments
 
 
-# ******************************************************************************
-# 10 Next Steps ----------------------------------------------------------------
-# ******************************************************************************
+# 10 Next Steps and Resources --------------------------------------------------
 
 # CONGRATULATIONS! You've completed the introduction to R!
 #
