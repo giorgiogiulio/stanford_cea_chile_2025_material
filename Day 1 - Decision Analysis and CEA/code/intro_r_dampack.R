@@ -430,7 +430,7 @@ plot(icer_cacu, label = "all") +
 # - Inc_Effect: 2.3 QALYs adicionales vs. "Sin tamizaje"
 # - icer: $143,478 por QALY ganado
 # - Status ND: No dominada, permanece en la frontera
-# - Interpretación: ¡Esta es la estrategia MÁS COSTO-EFECTIVA!
+# - Interpretación:
 #   * El icer de ~$143,000/QALY está muy por debajo del umbral típico
 #     de 1 PIB per cápita (~$10 millones en Chile)
 #   * Gana 2.3 QALYs vs. no hacer nada (equivalente a ~2.3 años de vida
@@ -499,13 +499,6 @@ plot(icer_cacu, label = "all") +
 # - Evidencia local robusta para sustentar cambio de política
 
 # IMPLICANCIAS PARA POLÍTICA PÚBLICA EN CHILE:
-#
-# Umbral de costo-efectividad en Chile:
-# - PIB per cápita Chile ~$10 millones (2023)
-# - Umbral típico: 1-3 veces PIB per cápita = $10-30 millones/QALY
-# - "VPH cada 5 años": icer de $143,478/QALY → ALTAMENTE COSTO-EFECTIVO ✓
-# - "VPH cada 3 años": icer de $1,400,000/QALY → NO costo-efectivo ✗
-
 
 # RECOMENDACIÓN PRINCIPAL:
 # Chile debería reemplazar "PAP cada 3 años" por "VPH cada 5 años"
