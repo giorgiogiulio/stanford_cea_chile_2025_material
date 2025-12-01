@@ -100,11 +100,13 @@ c
 #   "dplyr"          # data manipulation
 # ))
 
+install.packages("devtools") # development tools; used to install IMIS from archive
+
+library(devtools)
 
 # Use pacman to install (if needed) and load all required packages
 pacman::p_load(       
   lhs,            # Latin Hypercube Sampling
-  devtools,       # development tools; used to install IMIS from archive
   matrixStats,    # fast summary statistics on matrices
   plotrix,        # for plotCI function and extra plotting tools
   psych,          # for pairs.panels and descriptive analyses
@@ -114,6 +116,7 @@ pacman::p_load(
   dplyr,          # data manipulation (filter, mutate, summarise, etc.)
   readxl          # to read and write excel files
 )
+
 
 install.packages("cli") #For windows support. 
 install.packages("dampack") #For windows support. 
