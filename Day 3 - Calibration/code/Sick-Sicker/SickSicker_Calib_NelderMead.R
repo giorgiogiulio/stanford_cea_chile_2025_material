@@ -67,7 +67,9 @@ p_load(
   scatterplot3d,# 3D scatter plots
   ggplot2,      # Advanced plotting
   GGally,       # Pairwise plots
-  mvtnorm       # Multivariate normal distribution
+  mvtnorm,      # Multivariate normal distribution
+  matrixcalc,   # To evaluate if matrix is positive definite
+  Matrix        # To compute nearest positive definite matrix
 )
 
 # ******************************************************************************
@@ -333,24 +335,37 @@ legend("topright",
 ### 09.01 Extract Hessian matrix  ----------------------------------------------
 m_hess <- l_fit_nm[[id_best_set]]$hessian
 m_hess
+# check if hessian is negative definite
+eigen(m_hess)$values
 
-### 09.02 Calculate covariance matrix  -----------------------------------------
-m_cov <- solve(-m_hess)
-m_cov
+### 09.02 Covariance matrix  ---------------------------------------------------
+# Check if HESSIAN is Positive Definite; If not, make covariance 
+# Positive Definite
+# Is Positive Definite?
+if (!is.positive.definite(-m_hess)) {
+  print("Hessian is NOT Positive Definite")
+  m_cov <- solve(-m_hess)
+  print("Compute nearest positive definite matrix for COV matrix using `nearPD` function")
+  m_cov <- Matrix::nearPD(m_cov)$mat
+} else{
+  print("Hessian IS Positive Definite")
+  print("No additional adjustment to COV matrix")
+  m_cov <- solve(-m_hess)
+}
 
-### 09.03 Calculate standard errors  -------------------------------------------
+### 09.03 Correlation matrix  ---------------------------------------------------
+m_cor <- cov2cor(m_cov)
+m_cor
+
+### 09.04 Calculate standard errors  -------------------------------------------
 m_se <- sqrt(diag(m_cov))
 m_se
 
-### 09.04 Calculate 95% confidence interval  -----------------------------------
+### 09.05 Calculate 95% confidence interval  -----------------------------------
 m_confint <- cbind(v_param_best - 1.96*m_se,
                    v_param_best + 1.96*m_se)
 colnames(m_confint) <- c("LB", "UB")
 m_confint
-
-### 09.05 Calculate correlation matrix  ----------------------------------------
-m_cor <- cov2cor(m_cov)
-m_cor
 
 ### 09.06 Sample from multivariate normal distribution  ------------------------
 n_samp <- 1000
