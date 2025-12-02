@@ -249,6 +249,109 @@ calc_log_post(v_params = sample_prior(10))
 calc_post(v_params = v_params_test)
 calc_post(v_params = sample_prior(10))
 
+
+#' Parallel evaluation of log-likelihood function for a sets of parameters
+#'
+#' \code{log_lik_par} computes a log-likelihood value for one (or multiple) 
+#' parameter set(s) using parallel computation.
+#'
+#' @param v_params Vector (or matrix) of model parameters.
+#' @return 
+#' A scalar (or vector) with log-likelihood values.
+log_lik_par <- function(v_params,
+                        ...) { 
+  if (is.null(dim(v_params))) { # If vector, change to matrix
+    v_params <- t(v_params) 
+  }
+  
+  n_samp <- nrow(v_params)
+  
+  ### Get OS
+  os <- get_os()
+  
+  no_cores <- parallel::detectCores() - 1
+  
+  print(paste0("Parallelized Likelihood calculations on ", os, 
+               " using ", no_cores, " cores"))
+  
+  n_time_init_likpar <- Sys.time()
+  
+  if (os == "macosx") {
+    # Initialize cluster object
+    cl <- parallel::makeForkCluster(no_cores) 
+    doParallel::registerDoParallel(cl)
+    v_llk <- foreach::foreach(i = 1:n_samp, .combine = c) %dopar% {
+      calc_log_lik(v_params[i, ]) # i = 1
+    }
+    n_time_end_likpar <- Sys.time()
+  }
+  if (os == "windows") {
+    # Initialize cluster object
+    cl <- parallel::makeCluster(no_cores)
+    doParallel::registerDoParallel(cl)
+    opts <- list(attachExportEnv = TRUE)
+    v_llk <- foreach::foreach(i = 1:n_samp, .combine = c,
+                              .export = ls(globalenv()),
+                              .packages = c(),
+                              .options.snow = opts) %dopar% {
+                                calc_log_lik(v_params[i, ])
+                              }
+    n_time_end_likpar <- Sys.time()
+  }
+  if (os == "linux") {
+    # Initialize cluster object
+    cl <- parallel::makeCluster(no_cores)
+    doMC::registerDoMC(cl)
+    v_llk <- foreach::foreach(i = 1:n_samp, .combine = c) %dopar% {
+      calc_log_lik(v_params[i, ])
+    }
+    n_time_end_likpar <- Sys.time()
+  }
+  
+  parallel::stopCluster(cl)
+  n_time_total_likpar <- difftime(n_time_end_likpar, n_time_init_likpar, 
+                                  units = "hours")
+  print(paste0("Runtime: ", round(n_time_total_likpar, 2), " hrs."))
+  #-# Try this: # PO
+  rm(cl)        # PO
+  gc()          # PO
+  #-#           # PO
+  return(v_llk)
+}
+
+#' Likelihood
+#'
+#' \code{likelihood} computes a likelihood value for one (or multiple) 
+#' parameter set(s).
+#'
+#' @param v_params Vector (or matrix) of model parameters. 
+#' @return 
+#' A scalar (or vector) with likelihood values.
+likelihood <- function(v_params){ 
+  v_like <- exp(log_lik_par(v_params)) 
+  return(v_like)
+}
+
+#' Get operating system
+#' 
+#' @return 
+#' A string with the operating system.
+#' @export
+get_os <- function(){
+  sysinf <- Sys.info()
+  if (!is.null(sysinf)) {
+    os <- sysinf['sysname']
+    if (os == 'Darwin')
+      os <- "MacOSX"
+  } else { ## mystery machine
+    os <- .Platform$OS.type
+    if (grepl("^darwin", R.version$os))
+      os <- "osx"
+    if (grepl("linux-gnu", R.version$os))
+      os <- "linux"
+  }
+  tolower(os)
+}
 # ******************************************************************************
 # 09 Run Bayesian calibration using IMIS ---------------------------------------
 # ******************************************************************************
@@ -258,7 +361,7 @@ t_init <- Sys.time()
 
 ### 09.02 Define IMIS functions  -----------------------------------------------
 prior          <- calc_prior
-likelihood     <- calc_likelihood
+# likelihood     <- calc_likelihood
 sample.prior   <- sample_prior
 
 ### 09.03 Run IMIS algorithm  --------------------------------------------------
