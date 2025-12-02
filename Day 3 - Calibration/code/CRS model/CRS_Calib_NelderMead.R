@@ -69,9 +69,10 @@ p_load(
   psych,        # Pairs panels
   mvtnorm,      # Multivariate normal distribution
   GGally,       # Pairwise plots
-  ggplot2       # Advanced plotting
+  ggplot2,      # Advanced plotting
+  matrixcalc,   # To evaluate if matrix is positive definite
+  Matrix        # To compute nearest positive definite matrix
 )
-
 # ******************************************************************************
 # 03 Load calibration targets --------------------------------------------------
 # ******************************************************************************
@@ -220,6 +221,7 @@ for (j in 1:n_init) { # j <- 1
 
 ### 07.05 Calculate computation time  ------------------------------------------
 comp_time <- Sys.time() - t_init
+comp_time
 
 # ******************************************************************************
 # 08 Explore best-fitting parameter sets ---------------------------------------
@@ -285,24 +287,37 @@ legend("topright",
 ### 09.01 Hessian matrix  ------------------------------------------------------
 m_hess <- l_fit_nm[[id_best_set]]$hessian
 m_hess
+# check if hessian is negative definite
+eigen(m_hess)$values
 
 ### 09.02 Covariance matrix  ---------------------------------------------------
-m_cov <- solve(-m_hess)
-m_cov
+# Check if HESSIAN is Positive Definite; If not, make covariance 
+# Positive Definite
+# Is Positive Definite?
+if (!is.positive.definite(-m_hess)) {
+  print("Hessian is NOT Positive Definite")
+  m_cov <- solve(-m_hess)
+  print("Compute nearest positive definite matrix for COV matrix using `nearPD` function")
+  m_cov <- Matrix::nearPD(m_cov)$mat
+} else{
+  print("Hessian IS Positive Definite")
+  print("No additional adjustment to COV matrix")
+  m_cov <- solve(-m_hess)
+}
 
-### 09.03 Standard errors  -----------------------------------------------------
+### 09.03 Correlation matrix  ---------------------------------------------------
+m_cor <- cov2cor(m_cov)
+m_cor
+
+### 09.04 Standard errors  -----------------------------------------------------
 m_se <- sqrt(diag(m_cov))
 m_se
 
-### 09.04 95% confidence interval  ---------------------------------------------
+### 09.05 95% confidence interval  ---------------------------------------------
 m_confint <- cbind(v_param_best - 1.96 * m_se,
                    v_param_best + 1.96 * m_se)
 colnames(m_confint) <- c("LB", "UB")
 m_confint
-
-### 09.05 Correlation matrix  --------------------------------------------------
-m_cor <- cov2cor(m_cov)
-m_cor
 
 ### 09.06 Draw sample of parameters  -------------------------------------------
 n_samp <- 1000
