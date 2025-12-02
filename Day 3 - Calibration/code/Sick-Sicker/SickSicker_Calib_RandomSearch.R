@@ -213,7 +213,7 @@ m_GOF <- cbind(m_GOF, Overall_fit = v_GOF_overall)
 
 ### 06.06 Calculate computation time  ------------------------------------------
 comp_time <- Sys.time() - t_init
-
+comp_time
 
 # ******************************************************************************
 # 07 Explore calibration results -----------------------------------------------
